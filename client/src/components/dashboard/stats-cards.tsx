@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Calendar, Users, CreditCard, TrendingUp, TrendingDown } from "lucide-react";
+import { DollarSign, Calendar, Users, CreditCard, TrendingUp, TrendingDown, ArrowUpRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLocation } from "wouter";
 
