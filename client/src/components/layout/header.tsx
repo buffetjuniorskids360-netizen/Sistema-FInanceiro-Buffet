@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Menu, Bell, Search, Sun, Moon, X, Check, Clock, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -58,7 +57,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       icon: '👥'
     }
   ]);
-  
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
@@ -113,7 +112,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          
+
           <div className="relative hidden md:block">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <input
@@ -185,7 +184,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   )}
                 </div>
               </div>
-              
+
               <ScrollArea className="max-h-80">
                 {notifications.length === 0 ? (
                   <div className="p-6 text-center">
@@ -245,7 +244,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   </div>
                 )}
               </ScrollArea>
-              
+
               {notifications.length > 0 && (
                 <div className="p-3 border-t border-gray-200 dark:border-gray-700">
                   <Button variant="ghost" className="w-full text-xs hover:bg-purple-100 dark:hover:bg-purple-900/20">
