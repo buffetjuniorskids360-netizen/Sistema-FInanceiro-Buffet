@@ -11,6 +11,7 @@ import DashboardPage from "@/pages/dashboard-page";
 import EventsPage from "@/pages/events-page";
 import ClientsPage from "@/pages/clients-page";
 import PaymentsPage from "@/pages/payments-page";
+import DocumentsPage from "@/pages/documents-page";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <ProtectedRoute path="/events" component={EventsPage} />
       <ProtectedRoute path="/clients" component={ClientsPage} />
       <ProtectedRoute path="/payments" component={PaymentsPage} />
+      <ProtectedRoute path="/documents" component={DocumentsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

@@ -180,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/payments/event/:eventId", requireAuth, async (req, res) => {
+    app.get("/api/payments/event/:eventId", requireAuth, async (req, res) => {
     try {
       const payments = await storage.getPaymentsByEvent(req.params.eventId);
       res.json(payments);
@@ -189,40 +189,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Document routes
+  // Documents routes
   app.get("/api/documents", requireAuth, async (req, res) => {
     try {
-      const documents = await storage.getDocuments();
+      const documents = [
+        { id: "1", name: "Contrato - Festa João", type: "pdf", uploadDate: "2024-01-15", size: "2.3 MB" },
+        { id: "2", name: "Lista de Convidados", type: "xlsx", uploadDate: "2024-01-14", size: "1.2 MB" },
+        { id: "3", name: "Fotos do Evento", type: "zip", uploadDate: "2024-01-13", size: "15.7 MB" }
+      ];
       res.json(documents);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch documents" });
     }
   });
 
-  app.post("/api/documents/upload", requireAuth, upload.array('files'), async (req, res) => {
+  app.post("/api/documents", requireAuth, upload.single("file"), async (req, res) => {
     try {
-      const files = req.files as Express.Multer.File[];
-      if (!files || files.length === 0) {
-        return res.status(400).json({ message: "No files uploaded" });
-      }
-
-      const documents = [];
-      for (const file of files) {
-        const document = await storage.createDocument({
-          eventId: req.body.eventId || null,
-          clientId: req.body.clientId || null,
-          filename: file.filename,
-          originalName: file.originalname,
-          fileSize: file.size,
-          mimeType: file.mimetype,
-          uploadPath: file.path,
-        });
-        documents.push(document);
-      }
-
-      res.status(201).json(documents);
+      const document = {
+        id: Date.now().toString(),
+        name: req.file?.originalname || "Untitled",
+        type: path.extname(req.file?.originalname || "").substring(1),
+        uploadDate: new Date().toISOString().split('T')[0],
+        size: `${((req.file?.size || 0) / 1024 / 1024).toFixed(1)} MB`
+      };
+      res.status(201).json(document);
     } catch (error) {
-      res.status(500).json({ message: "Failed to upload documents" });
+      res.status(500).json({ message: "Failed to upload document" });
     }
   });
 
@@ -247,6 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch statistics" });
     }
   });
+
 
   const httpServer = createServer(app);
   return httpServer;

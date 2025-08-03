@@ -1,110 +1,115 @@
-import { createContext, ReactNode, useContext } from "react";
-import {
-  useQuery,
-  useMutation,
-  UseMutationResult,
-} from "@tanstack/react-query";
-import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
-import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { createContext, useContext, useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
-type AuthContextType = {
-  user: SelectUser | null;
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  login: (username: string, password: string) => Promise<boolean>;
+  register: (userData: any) => Promise<boolean>;
+  logout: () => Promise<void>;
   isLoading: boolean;
-  error: Error | null;
-  loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
-  logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
-};
+}
 
-type LoginData = Pick<InsertUser, "username" | "password">;
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthContext = createContext<AuthContextType | null>(null);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [, setLocation] = useLocation();
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const { toast } = useToast();
-  const {
-    data: user,
-    error,
-    isLoading,
-  } = useQuery<SelectUser | undefined, Error>({
-    queryKey: ["/api/user"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
-  });
+  const checkAuth = async () => {
+    try {
+      const response = await fetch("/api/user", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      }
+    } catch (error) {
+      console.error("Auth check failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const loginMutation = useMutation({
-    mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
-    },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${user.name}!`,
+  const login = async (username: string, password: string): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+        credentials: "include",
       });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
-  const registerMutation = useMutation({
-    mutationFn: async (credentials: InsertUser) => {
-      const res = await apiRequest("POST", "/api/register", credentials);
-      return await res.json();
-    },
-    onSuccess: (user: SelectUser) => {
-      queryClient.setQueryData(["/api/user"], user);
-      toast({
-        title: "Registration successful",
-        description: `Welcome to Buffet Juniors, ${user.name}!`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setLocation("/");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Login failed:", error);
+      return false;
+    }
+  };
 
-  const logoutMutation = useMutation({
-    mutationFn: async () => {
-      await apiRequest("POST", "/api/logout");
-    },
-    onSuccess: () => {
-      queryClient.setQueryData(["/api/user"], null);
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
+  const register = async (userData: any): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+        credentials: "include",
       });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Logout failed",
-        description: error.message,
-        variant: "destructive",
+
+      if (response.ok) {
+        const newUser = await response.json();
+        setUser(newUser);
+        setLocation("/");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Registration failed:", error);
+      return false;
+    }
+  };
+
+  const logout = async (): Promise<void> => {
+    try {
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
       });
-    },
-  });
+      setUser(null);
+      setLocation("/auth");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const contextValue = {
+    user,
+    login,
+    register,
+    logout,
+    isLoading
+  };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user: user ?? null,
-        isLoading,
-        error,
-        loginMutation,
-        logoutMutation,
-        registerMutation,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
@@ -112,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
