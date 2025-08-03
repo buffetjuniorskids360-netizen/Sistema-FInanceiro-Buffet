@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, FileText, Download, Trash2, Search, Plus, Filter, Grid, List, FolderOpen, Eye } from "lucide-react";
+import { Upload, FileText, Download, Trash2, Search, Plus, Filter, Grid, List, FolderOpen, Eye, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -32,6 +33,7 @@ export default function DocumentsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
   const { data: documents = [], isLoading } = useQuery({
@@ -192,9 +194,20 @@ export default function DocumentsPage() {
       {/* Main Content */}
       <div className="flex-1 p-6 space-y-6 bg-gray-50 dark:bg-gray-900/50">
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold gradient-text">Documentos</h1>
-            <p className="text-gray-600 dark:text-gray-400">Gerencie seus documentos e arquivos</p>
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setLocation("/")}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Dashboard
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold gradient-text">Documentos</h1>
+              <p className="text-gray-600 dark:text-gray-400">Gerencie seus documentos e arquivos</p>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">

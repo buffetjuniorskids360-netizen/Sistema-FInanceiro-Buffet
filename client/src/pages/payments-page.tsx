@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,16 @@ export default function PaymentsPage() {
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [location] = useLocation();
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.split('?')[1]);
+    const filter = urlParams.get('filter');
+    if (filter === 'pending') {
+      setStatusFilter('pending');
+    }
+  }, [location]);
 
   const [formData, setFormData] = useState({
     eventId: "",
@@ -108,6 +119,11 @@ export default function PaymentsPage() {
     }
   };
 
+  const filteredPayments = payments?.filter(payment => {
+    if (statusFilter === 'all') return true;
+    return payment.status === statusFilter;
+  }) || [];
+
   const getMethodText = (method: string) => {
     switch (method) {
       case 'cash': return 'Dinheiro';
@@ -160,13 +176,37 @@ export default function PaymentsPage() {
         </div>
         
         <div className="flex-1 overflow-auto p-6">
+          {/* Filtros */}
+          <div className="mb-6">
+            <div className="flex gap-2">
+              <Button 
+                variant={statusFilter === 'all' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('all')}
+              >
+                Todos
+              </Button>
+              <Button 
+                variant={statusFilter === 'pending' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('pending')}
+              >
+                Pendentes
+              </Button>
+              <Button 
+                variant={statusFilter === 'completed' ? 'default' : 'outline'}
+                onClick={() => setStatusFilter('completed')}
+              >
+                Concluídos
+              </Button>
+            </div>
+          </div>
+
           {isLoading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-24" />
               ))}
             </div>
-          ) : payments?.length === 0 ? (
+          ) : filteredPayments.length === 0 ? (
             <div className="text-center py-12">
               <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -181,7 +221,7 @@ export default function PaymentsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {payments?.map((payment: any) => {
+              {filteredPayments.map((payment: any) => {
                 const Icon = getPaymentIcon(payment.paymentMethod, payment.status);
                 
                 return (
