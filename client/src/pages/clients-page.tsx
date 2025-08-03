@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -7,27 +8,37 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertClientSchema } from "@shared/schema";
-import { Users, Plus, Edit, Trash2, Phone, Mail, MapPin } from "lucide-react";
+import { Users, Plus, Phone, Mail, MapPin, Calendar, ArrowLeft, User } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { useLocation } from "wouter";
 
 export default function ClientsPage() {
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [, setLocation] = useLocation();
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     address: "",
+    notes: "",
   });
 
   const { data: clients, isLoading } = useQuery<any[]>({
     queryKey: ["/api/clients"],
+  });
+
+  const { data: events } = useQuery<any[]>({
+    queryKey: ["/api/events"],
   });
 
   const createMutation = useMutation({
@@ -38,6 +49,7 @@ export default function ClientsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       toast({
         title: "Cliente criado",
         description: "O cliente foi criado com sucesso.",
@@ -53,85 +65,43 @@ export default function ClientsPage() {
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const validatedData = insertClientSchema.partial().parse(data);
-      const res = await apiRequest("PUT", `/api/clients/${selectedClient.id}`, validatedData);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      toast({
-        title: "Cliente atualizado",
-        description: "O cliente foi atualizado com sucesso.",
-      });
-      handleCloseModal();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/clients/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
-      toast({
-        title: "Cliente removido",
-        description: "O cliente foi removido com sucesso.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Erro",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleNewClient = () => {
-    setSelectedClient(null);
-    setFormData({ name: "", email: "", phone: "", address: "" });
-    setShowClientModal(true);
-  };
-
-  const handleEditClient = (client: any) => {
-    setSelectedClient(client);
     setFormData({
-      name: client.name || "",
-      email: client.email || "",
-      phone: client.phone || "",
-      address: client.address || "",
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      notes: "",
     });
     setShowClientModal(true);
   };
 
   const handleCloseModal = () => {
     setShowClientModal(false);
-    setSelectedClient(null);
-    setFormData({ name: "", email: "", phone: "", address: "" });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedClient) {
-      updateMutation.mutate(formData);
-    } else {
-      createMutation.mutate(formData);
-    }
+    createMutation.mutate(formData);
   };
 
-  const handleDelete = (client: any) => {
-    if (confirm(`Tem certeza que deseja remover ${client.name}?`)) {
-      deleteMutation.mutate(client.id);
-    }
+  const getClientEvents = (clientId: string) => {
+    return events?.filter(event => event.clientId === clientId) || [];
+  };
+
+  const getClientEventsCount = (clientId: string) => {
+    return getClientEvents(clientId).length;
+  };
+
+  const getLastEventDate = (clientId: string) => {
+    const clientEvents = getClientEvents(clientId);
+    if (clientEvents.length === 0) return null;
+    
+    const sortedEvents = clientEvents.sort((a, b) => 
+      new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime()
+    );
+    
+    return sortedEvents[0].eventDate;
   };
 
   return (
@@ -152,14 +122,15 @@ export default function ClientsPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="lg:hidden"
-                onClick={() => setSidebarOpen(true)}
+                onClick={() => setLocation("/")}
+                className="flex items-center gap-2"
               >
-                <Users className="h-5 w-5" />
+                <ArrowLeft className="w-4 h-4" />
+                Dashboard
               </Button>
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">Clientes</h2>
-                <p className="text-sm text-gray-500">Gerencie seus clientes</p>
+                <p className="text-sm text-gray-500">Gerencie seus clientes e histórico</p>
               </div>
             </div>
             <Button onClick={handleNewClient}>
@@ -176,70 +147,90 @@ export default function ClientsPage() {
                 <Skeleton key={i} className="h-48" />
               ))}
             </div>
-          ) : clients?.length === 0 ? (
+          ) : clients && clients.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Nenhum cliente cadastrado
+                Nenhum cliente registrado
               </h3>
               <p className="text-gray-500 mb-4">
                 Comece adicionando seu primeiro cliente
               </p>
               <Button onClick={handleNewClient}>
-                Novo Cliente
+                Adicionar Primeiro Cliente
               </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {clients?.map((client: any) => (
-                <Card key={client.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">{client.name}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    {client.email && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Mail className="w-4 h-4" />
-                        <span>{client.email}</span>
+              {clients?.map((client: any) => {
+                const eventsCount = getClientEventsCount(client.id);
+                const lastEventDate = getLastEventDate(client.id);
+                
+                return (
+                  <Card key={client.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                            <User className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg font-semibold text-gray-900">
+                              {client.name}
+                            </CardTitle>
+                            <Badge variant="outline" className="mt-1">
+                              {eventsCount} evento{eventsCount !== 1 ? 's' : ''}
+                            </Badge>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    
-                    {client.phone && (
+                    </CardHeader>
+                    <CardContent className="space-y-3">
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Phone className="w-4 h-4" />
-                        <span>{client.phone}</span>
+                        {client.phone}
                       </div>
-                    )}
-                    
-                    {client.address && (
+                      
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <MapPin className="w-4 h-4" />
-                        <span className="line-clamp-2">{client.address}</span>
+                        <Mail className="w-4 h-4" />
+                        <span className="truncate">{client.email}</span>
                       </div>
-                    )}
-
-                    <div className="flex gap-2 pt-3">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleEditClient(client)}
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Editar
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-red-600 hover:text-red-700"
-                        onClick={() => handleDelete(client)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      
+                      {client.address && (
+                        <div className="flex items-start gap-2 text-sm text-gray-600">
+                          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <span className="line-clamp-2">{client.address}</span>
+                        </div>
+                      )}
+                      
+                      {lastEventDate && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            Último evento: {format(new Date(lastEventDate), 'dd/MM/yyyy', { locale: ptBR })}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {client.notes && (
+                        <div className="text-sm">
+                          <span className="font-medium text-gray-700">Observações:</span>
+                          <p className="mt-1 text-gray-600 text-xs leading-relaxed line-clamp-3">
+                            {client.notes}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="pt-3 border-t border-gray-100">
+                        <div className="flex justify-between items-center text-xs text-gray-500">
+                          <span>Cliente desde:</span>
+                          <span>{format(new Date(client.createdAt), 'dd/MM/yyyy', { locale: ptBR })}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
@@ -248,39 +239,44 @@ export default function ClientsPage() {
       <Dialog open={showClientModal} onOpenChange={handleCloseModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {selectedClient ? "Editar Cliente" : "Novo Cliente"}
-            </DialogTitle>
+            <DialogTitle>Novo Cliente</DialogTitle>
           </DialogHeader>
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="name">Nome</Label>
+              <Label htmlFor="name">Nome Completo</Label>
               <Input
                 id="name"
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome do cliente"
                 required
               />
             </div>
             
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="cliente@email.com"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="(11) 99999-9999"
+                  required
+                />
+              </div>
             </div>
             
             <div>
@@ -289,6 +285,18 @@ export default function ClientsPage() {
                 id="address"
                 value={formData.address}
                 onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Endereço completo"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Informações adicionais sobre o cliente..."
+                rows={3}
               />
             </div>
 
@@ -298,14 +306,9 @@ export default function ClientsPage() {
               </Button>
               <Button 
                 type="submit" 
-                disabled={createMutation.isPending || updateMutation.isPending}
+                disabled={createMutation.isPending}
               >
-                {(createMutation.isPending || updateMutation.isPending) 
-                  ? "Salvando..." 
-                  : selectedClient 
-                    ? "Atualizar" 
-                    : "Criar"
-                }
+                {createMutation.isPending ? "Salvando..." : "Criar Cliente"}
               </Button>
             </div>
           </form>
