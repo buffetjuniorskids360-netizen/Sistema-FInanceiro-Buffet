@@ -13,6 +13,10 @@ import ClientsPage from "@/pages/clients-page";
 import PaymentsPage from "@/pages/payments-page";
 import DocumentsPage from "@/pages/documents-page";
 import RevenuePage from "@/pages/revenue-page";
+import RevenueTotalPage from "@/pages/revenue-total-page";
+import EventsMonthPage from "@/pages/events-month-page";
+import ActiveClientsPage from "@/pages/active-clients-page";
+import PendingPaymentsPage from "@/pages/pending-payments-page";
 
 function Router() {
   return (
@@ -23,6 +27,10 @@ function Router() {
       <ProtectedRoute path="/payments" component={PaymentsPage} />
       <ProtectedRoute path="/revenue" component={RevenuePage} />
       <ProtectedRoute path="/documents" component={DocumentsPage} />
+      <ProtectedRoute path="/receita-total" component={RevenueTotalPage} />
+      <ProtectedRoute path="/eventos-mes" component={EventsMonthPage} />
+      <ProtectedRoute path="/clientes-ativos" component={ActiveClientsPage} />
+      <ProtectedRoute path="/pagamentos-pendentes" component={PendingPaymentsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
