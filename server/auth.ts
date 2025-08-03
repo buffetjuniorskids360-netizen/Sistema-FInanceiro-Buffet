@@ -29,6 +29,27 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
+  // Create default user if it doesn't exist
+  const createDefaultUser = async () => {
+    try {
+      const existingUser = await storage.getUserByUsername("Buffet");
+      if (!existingUser) {
+        await storage.createUser({
+          username: "Buffet",
+          password: await hashPassword("Caieiras23"),
+          name: "Administrador Buffet",
+          email: "admin@buffetjuniors.com"
+        });
+        console.log("Default user 'Buffet' created successfully");
+      }
+    } catch (error) {
+      console.error("Error creating default user:", error);
+    }
+  };
+
+  // Create default user on startup
+  createDefaultUser();
+
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "buffet-juniors-secret-key",
     resave: false,

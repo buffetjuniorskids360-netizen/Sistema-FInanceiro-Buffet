@@ -1,5 +1,7 @@
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
 
 interface User {
   id: string;
@@ -10,9 +12,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
-  register: (userData: any) => Promise<boolean>;
-  logout: () => Promise<void>;
+  loginMutation: any;
+  registerMutation: any;
+  logoutMutation: any;
   isLoading: boolean;
 }
 
@@ -39,8 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    try {
+  const loginMutation = useMutation({
+    mutationFn: async ({ username, password }: { username: string; password: string }) => {
       const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,21 +50,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credentials: "include",
       });
 
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
-        setLocation("/");
-        return true;
+      if (!response.ok) {
+        throw new Error("Login falhou");
       }
-      return false;
-    } catch (error) {
-      console.error("Login failed:", error);
-      return false;
-    }
-  };
 
-  const register = async (userData: any): Promise<boolean> => {
-    try {
+      return response.json();
+    },
+    onSuccess: (userData) => {
+      setUser(userData);
+      setLocation("/");
+    },
+    onError: (error) => {
+      console.error("Login failed:", error);
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async (userData: any) => {
       const response = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,31 +74,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credentials: "include",
       });
 
-      if (response.ok) {
-        const newUser = await response.json();
-        setUser(newUser);
-        setLocation("/");
-        return true;
+      if (!response.ok) {
+        throw new Error("Registro falhou");
       }
-      return false;
-    } catch (error) {
-      console.error("Registration failed:", error);
-      return false;
-    }
-  };
 
-  const logout = async (): Promise<void> => {
-    try {
-      await fetch("/api/logout", {
+      return response.json();
+    },
+    onSuccess: (userData) => {
+      setUser(userData);
+      setLocation("/");
+    },
+    onError: (error) => {
+      console.error("Registration failed:", error);
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/logout", {
         method: "POST",
         credentials: "include",
       });
+
+      if (!response.ok) {
+        throw new Error("Logout falhou");
+      }
+    },
+    onSuccess: () => {
       setUser(null);
       setLocation("/auth");
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error("Logout failed:", error);
-    }
-  };
+    },
+  });
 
   useEffect(() => {
     checkAuth();
@@ -102,9 +115,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const contextValue = {
     user,
-    login,
-    register,
-    logout,
+    loginMutation,
+    registerMutation,
+    logoutMutation,
     isLoading
   };
 

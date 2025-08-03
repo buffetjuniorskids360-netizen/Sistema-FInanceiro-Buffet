@@ -8,14 +8,16 @@ import { RecentPayments } from "@/components/payments/recent-payments";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, UserPlus, DollarSign } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function DashboardPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen flex">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
+
       {/* Overlay for mobile */}
       {sidebarOpen && (
         <div 
@@ -30,7 +32,7 @@ export default function DashboardPage() {
           subtitle="Visão geral do seu negócio"
           onMenuClick={() => setSidebarOpen(true)}
         />
-        
+
         <div className="flex-1 overflow-auto p-6">
           {/* Stats Overview */}
           <div className="mb-8">
@@ -47,7 +49,7 @@ export default function DashboardPage() {
                 <CardTitle>Ações Rápidas</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start h-auto p-3">
+                <Button variant="outline" className="w-full justify-start h-auto p-3" onClick={() => setLocation("/events")}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
                       <Plus className="text-primary w-4 h-4" />
@@ -58,8 +60,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </Button>
-                
-                <Button variant="outline" className="w-full justify-start h-auto p-3">
+
+                <Button variant="outline" className="w-full justify-start h-auto p-3" onClick={() => setLocation("/clients")}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-secondary/10 rounded-lg flex items-center justify-center">
                       <UserPlus className="text-secondary w-4 h-4" />
@@ -70,8 +72,8 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </Button>
-                
-                <Button variant="outline" className="w-full justify-start h-auto p-3">
+
+                <Button variant="outline" className="w-full justify-start h-auto p-3" onClick={() => setLocation("/payments")}>
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
                       <DollarSign className="text-green-600 w-4 h-4" />
