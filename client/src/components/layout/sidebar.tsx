@@ -25,7 +25,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, logoutMutation } = useAuth();
 
   const navigation = [
@@ -69,23 +69,22 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {navigation.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.href;
-          
+
           return (
-            <Link key={item.name} href={item.href}>
-              <a 
-                className={`
-                  flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition-colors
-                  ${isActive 
-                    ? 'text-primary bg-primary/10' 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }
-                `}
-                onClick={onClose}
+            
+              <button
+                key={item.href}
+                onClick={() => setLocation(item.href)}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  location === item.href
+                    ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
+                }`}
               >
-                <Icon className="w-5 h-5" />
+                <Icon className="h-4 w-4" />
                 {item.name}
-              </a>
-            </Link>
+              </button>
+            
           );
         })}
       </nav>

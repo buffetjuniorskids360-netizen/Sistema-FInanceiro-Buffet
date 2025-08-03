@@ -10,14 +10,14 @@ import { Cake, Shield, Lock } from "lucide-react";
 export default function AuthPage() {
   const { user, loginMutation } = useAuth();
   const [, setLocation] = useLocation();
+  const [loginForm, setLoginForm] = useState({ username: "Buffet", password: "Caieiras23" });
 
   // Redirect if already logged in
-  if (user) {
-    setLocation("/");
-    return null;
-  }
-
-  const [loginForm, setLoginForm] = useState({ username: "Buffet", password: "Caieiras23" });
+  React.useEffect(() => {
+    if (user) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
