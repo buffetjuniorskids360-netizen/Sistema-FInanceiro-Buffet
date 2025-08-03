@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { CheckCircle, CreditCard, Clock, DollarSign } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function RecentPayments() {
+  const [, setLocation] = useLocation();
   const { data: payments, isLoading } = useQuery<any[]>({
     queryKey: ["/api/payments/recent"],
   });
@@ -49,11 +50,9 @@ export function RecentPayments() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Pagamentos Recentes</CardTitle>
-          <Link href="/payments">
-            <a className="text-primary hover:text-primary/80 text-sm font-medium">
+          <a onClick={() => setLocation("/payments")} className="text-primary hover:text-primary/80 text-sm font-medium cursor-pointer">
               Ver todos
-            </a>
-          </Link>
+          </a>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -64,7 +63,7 @@ export function RecentPayments() {
         ) : (
           payments?.map((payment: any) => {
             const Icon = getPaymentIcon(payment.paymentMethod, payment.status);
-            
+
             return (
               <div key={payment.id} className="flex items-center gap-4">
                 <div className="flex-shrink-0">

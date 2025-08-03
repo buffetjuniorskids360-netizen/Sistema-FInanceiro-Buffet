@@ -2,11 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function UpcomingEvents() {
+  const [, setLocation] = useLocation();
   const { data: events, isLoading } = useQuery<any[]>({
     queryKey: ["/api/events/upcoming"],
   });
@@ -55,11 +56,9 @@ export function UpcomingEvents() {
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Próximos Eventos</CardTitle>
-          <Link href="/events">
-            <a className="text-primary hover:text-primary/80 text-sm font-medium">
+          <a onClick={() => setLocation("/events")} className="text-primary hover:text-primary/80 text-sm font-medium cursor-pointer">
               Ver todos
             </a>
-          </Link>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
