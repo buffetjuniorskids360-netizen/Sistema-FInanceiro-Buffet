@@ -48,8 +48,7 @@ export function setupAuth(app: Express) {
         await storage.createUser({
           username: "Buffet",
           password: await hashPassword("Caieiras23"),
-          name: "Administrador Buffet",
-          email: "admin@buffetjuniors.com"
+          name: "Administrador Buffet"
         });
         console.log("Default user 'Buffet' created successfully");
       }
