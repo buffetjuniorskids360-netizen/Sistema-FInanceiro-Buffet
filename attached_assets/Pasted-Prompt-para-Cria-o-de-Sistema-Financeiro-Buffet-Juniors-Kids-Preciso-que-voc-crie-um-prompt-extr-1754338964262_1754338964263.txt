@@ -1,0 +1,144 @@
+Prompt para Criação de Sistema Financeiro - Buffet Juniors Kids
+Preciso que você crie um prompt extremamente detalhado e técnico para desenvolvimento de um Sistema Financeiro Web completo para Buffet de Festas Infantis "Juniors Kids".
+Instruções para o Prompt:
+O prompt deve incluir TODOS os seguintes elementos com máximo detalhamento:
+1. ESPECIFICAÇÕES TÉCNICAS OBRIGATÓRIAS
+
+Stack tecnológica completa (Frontend, Backend, Banco de Dados, Hospedagem)
+Versões específicas de todas as ferramentas, frameworks e bibliotecas
+Estrutura de pastas e arquivos detalhada
+Configurações de ambiente (desenvolvimento, produção, teste)
+Dependências e suas versões exatas
+
+2. FUNCIONALIDADES DO SISTEMA
+Detalhe cada módulo com:
+Gestão Financeira:
+
+Controle de receitas (pagamentos de festas)
+Controle de despesas (fornecedores, funcionários, materiais)
+Fluxo de caixa diário/mensal/anual
+Relatórios financeiros detalhados
+Controle de inadimplência
+Gestão de formas de pagamento (PIX, cartão, dinheiro, parcelamento)
+
+Gestão de Festas:
+
+Cadastro completo de clientes
+Agendamento de eventos
+Controle de pacotes e serviços
+Gestão de decoração e temas
+Controle de buffet e cardápio
+Gestão de equipe e funcionários por evento
+
+Controle de Estoque:
+
+Materiais de decoração
+Ingredientes do buffet
+Brinquedos e equipamentos
+Controle de entrada/saída
+Alertas de estoque mínimo
+
+Relatórios e Dashboards:
+
+Painéis gerenciais interativos
+Gráficos de performance
+Relatórios de lucratividade por evento
+Análise de clientes mais rentáveis
+Projeções financeiras
+
+3. ARQUITETURA DO SISTEMA
+Especifique:
+
+Padrões de design (MVC, Repository, etc.)
+Arquitetura de microserviços ou monolítica
+APIs RESTful com documentação Swagger
+Autenticação e autorização (JWT, OAuth)
+Segurança (criptografia, validações, sanitização)
+Performance (cache, otimizações)
+
+4. BANCO DE DADOS
+
+Modelagem completa com todas as tabelas
+Relacionamentos entre entidades
+Índices para otimização
+Procedures e triggers necessárias
+Backup e recovery
+Migrações versionadas
+
+5. INTERFACE DO USUÁRIO
+
+Design responsivo para desktop, tablet e mobile
+UX/UI moderno com tema infantil adequado
+Componentes reutilizáveis
+Acessibilidade (WCAG)
+Temas claro/escuro
+Internacionalização (pt-BR)
+
+6. INTEGRAÇÕES EXTERNAS
+
+Gateways de pagamento (Mercado Pago, PagSeguro, Stripe)
+APIs de CEP para endereços
+Serviços de email (SendGrid, Amazon SES)
+WhatsApp Business API
+Google Calendar para agendamentos
+Sistemas contábeis (opcional)
+
+7. DEPLOY E INFRAESTRUTURA
+
+Docker com containers configurados
+CI/CD com GitHub Actions ou GitLab CI
+Monitoramento (logs, métricas, alertas)
+Backup automatizado
+SSL/HTTPS configurado
+CDN para assets estáticos
+
+8. DOCUMENTAÇÃO TÉCNICA
+
+README.md completo
+Documentação de APIs
+Guia de instalação passo a passo
+Manual do desenvolvedor
+Guia de contribuição
+Changelog versionado
+
+9. TESTES
+
+Testes unitários (cobertura mínima 80%)
+Testes de integração
+Testes end-to-end
+Testes de performance
+Configuração de CI para testes automatizados
+
+10. REQUISITOS ESPECIAIS
+
+Sistema deve ser escalável para múltiplas filiais
+Multi-tenant para franquias
+Offline-first para funcionamento sem internet
+PWA (Progressive Web App)
+Notificações push
+Backup em tempo real
+
+11. CRONOGRAMA DE DESENVOLVIMENTO
+
+Divisão em sprints detalhadas
+Milestones importantes
+Dependências entre tarefas
+Estimativas de tempo realistas
+Recursos necessários
+
+12. ORÇAMENTO E CUSTOS
+
+Estimativa de desenvolvimento
+Custos de infraestrutura mensais
+Licenças de software necessárias
+Manutenção e suporte
+
+IMPORTANTE:
+O prompt resultante deve ser tão detalhado que qualquer desenvolvedor experiente possa:
+
+Entender completamente o escopo
+Implementar o sistema sem dúvidas
+Fazer manutenções futuras facilmente
+Adicionar novas funcionalidades seguindo os padrões estabelecidos
+
+O prompt deve ter no mínimo 3000 palavras e incluir exemplos de código, comandos, configurações e estruturas de dados específicas para o negócio de buffet infantil.
