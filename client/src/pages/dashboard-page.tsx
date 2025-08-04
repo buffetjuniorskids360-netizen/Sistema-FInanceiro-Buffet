@@ -16,7 +16,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen flex">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar />
 
       {/* Overlay for mobile */}
       {sidebarOpen && (
@@ -27,11 +27,7 @@ export default function DashboardPage() {
       )}
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          title="Dashboard" 
-          subtitle="Visão geral do seu negócio"
-          onMenuClick={() => setSidebarOpen(true)}
-        />
+        <Header onMenuClick={() => setSidebarOpen(true)} />
 
         <div className="flex-1 overflow-auto p-6">
           {/* Stats Overview */}

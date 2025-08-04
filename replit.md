@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a full-stack buffet management system designed for children's party venues. The application provides comprehensive tools for managing clients, events, payments, and documents while offering real-time insights through an administrative dashboard. Built for Brazilian buffet businesses, it handles everything from event scheduling and guest management to payment tracking and financial reporting.
+This is a comprehensive full-stack financial management system for Buffet Juniors Kids, designed specifically for children's party venues. The application provides advanced tools for managing clients, events, payments, expenses, inventory, and documents while offering real-time business insights through interactive dashboards. Built for Brazilian buffet businesses, it handles everything from event scheduling and guest management to complete financial control including expense tracking, cash flow management, profitability analysis, and inventory control.
 
 ## User Preferences
 

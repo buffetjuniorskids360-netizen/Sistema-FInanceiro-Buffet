@@ -7,6 +7,8 @@ import {
   CreditCard, 
   FileText, 
   BarChart3,
+  Receipt,
+  Package,
   Settings,
   LogOut
 } from "lucide-react";
@@ -19,8 +21,10 @@ const navigation = [
   { name: "Clientes", href: "/clients", icon: Users },
   { name: "Eventos", href: "/events", icon: Calendar },
   { name: "Pagamentos", href: "/payments", icon: CreditCard },
+  { name: "Despesas", href: "/expenses", icon: Receipt },
+  { name: "Estoque", href: "/inventory", icon: Package },
   { name: "Documentos", href: "/documents", icon: FileText },
-  { name: "Receitas", href: "/revenue", icon: BarChart3 },
+  { name: "Relatórios", href: "/revenue", icon: BarChart3 },
 ];
 
 export function Sidebar() {
@@ -84,10 +88,10 @@ export function Sidebar() {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 dark:text-white truncate transition-colors duration-300">
-              {user?.name || "Usuário"}
+              {user?.username || "Usuário"}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 truncate transition-colors duration-300">
-              {user?.email || "email@exemplo.com"}
+              {user?.role || "admin"}
             </p>
           </div>
         </div>

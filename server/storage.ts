@@ -1,4 +1,4 @@
-import { users, clients, events, payments, documents, type User, type InsertUser, type Client, type InsertClient, type Event, type InsertEvent, type Payment, type InsertPayment, type Document, type InsertDocument } from "@shared/schema";
+import { users, clients, events, payments, documents, expenses, inventory, inventoryMovements, cashFlow, type User, type InsertUser, type Client, type InsertClient, type Event, type InsertEvent, type Payment, type InsertPayment, type Document, type InsertDocument, type Expense, type InsertExpense, type Inventory, type InsertInventory, type InventoryMovement, type InsertInventoryMovement, type CashFlow, type InsertCashFlow } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, gte, and, sql } from "drizzle-orm";
 import session from "express-session";
@@ -40,12 +40,49 @@ export interface IStorage {
   createDocument(document: InsertDocument): Promise<Document>;
   deleteDocument(id: string): Promise<boolean>;
   
-  // Statistics methods
+  // Expense methods
+  getExpenses(): Promise<(Expense & { event?: Event & { client: Client } })[]>;
+  getExpense(id: string): Promise<Expense | undefined>;
+  createExpense(expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: string, expense: Partial<InsertExpense>): Promise<Expense | undefined>;
+  deleteExpense(id: string): Promise<boolean>;
+  getExpensesByCategory(): Promise<{ category: string; total: number }[]>;
+  
+  // Inventory methods
+  getInventory(): Promise<Inventory[]>;
+  getInventoryItem(id: string): Promise<Inventory | undefined>;
+  createInventoryItem(item: InsertInventory): Promise<Inventory>;
+  updateInventoryItem(id: string, item: Partial<InsertInventory>): Promise<Inventory | undefined>;
+  deleteInventoryItem(id: string): Promise<boolean>;
+  getLowStockItems(): Promise<Inventory[]>;
+  
+  // Inventory movement methods
+  getInventoryMovements(inventoryId?: string): Promise<(InventoryMovement & { inventory: Inventory })[]>;
+  createInventoryMovement(movement: InsertInventoryMovement): Promise<InventoryMovement>;
+  
+  // Cash flow methods
+  getCashFlow(startDate?: Date, endDate?: Date): Promise<CashFlow[]>;
+  createCashFlowEntry(entry: InsertCashFlow): Promise<CashFlow>;
+  
+  // Enhanced statistics methods
   getMonthlyStats(): Promise<{
     monthlyRevenue: number;
+    monthlyExpenses: number;
+    monthlyProfit: number;
     eventsCount: number;
     activeClients: number;
     pendingPayments: number;
+    lowStockItems: number;
+    totalInventoryValue: number;
+  }>;
+  
+  getFinancialSummary(startDate: Date, endDate: Date): Promise<{
+    totalRevenue: number;
+    totalExpenses: number;
+    netProfit: number;
+    profitMargin: number;
+    expensesByCategory: { category: string; total: number }[];
+    revenueByMonth: { month: string; revenue: number }[];
   }>;
   
   sessionStore: any;
@@ -255,12 +292,187 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount ? result.rowCount > 0 : false;
   }
 
-  // Statistics methods
+  // Expense methods
+  async getExpenses(): Promise<(Expense & { event?: Event & { client: Client } })[]> {
+    return await db
+      .select()
+      .from(expenses)
+      .leftJoin(events, eq(expenses.eventId, events.id))
+      .leftJoin(clients, eq(events.clientId, clients.id))
+      .orderBy(desc(expenses.expenseDate))
+      .then(results => 
+        results.map(row => ({
+          ...row.expenses,
+          event: row.events ? {
+            ...row.events,
+            client: row.clients!
+          } : undefined
+        }))
+      );
+  }
+
+  async getExpense(id: string): Promise<Expense | undefined> {
+    const [expense] = await db.select().from(expenses).where(eq(expenses.id, id));
+    return expense || undefined;
+  }
+
+  async createExpense(insertExpense: InsertExpense): Promise<Expense> {
+    const [expense] = await db
+      .insert(expenses)
+      .values(insertExpense)
+      .returning();
+    return expense;
+  }
+
+  async updateExpense(id: string, updateData: Partial<InsertExpense>): Promise<Expense | undefined> {
+    const [expense] = await db
+      .update(expenses)
+      .set(updateData)
+      .where(eq(expenses.id, id))
+      .returning();
+    return expense || undefined;
+  }
+
+  async deleteExpense(id: string): Promise<boolean> {
+    const result = await db.delete(expenses).where(eq(expenses.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getExpensesByCategory(): Promise<{ category: string; total: number }[]> {
+    return await db
+      .select({
+        category: expenses.category,
+        total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`
+      })
+      .from(expenses)
+      .where(eq(expenses.status, 'paid'))
+      .groupBy(expenses.category)
+      .orderBy(desc(sql`SUM(${expenses.amount})`));
+  }
+
+  // Inventory methods
+  async getInventory(): Promise<Inventory[]> {
+    return await db.select().from(inventory).orderBy(inventory.name);
+  }
+
+  async getInventoryItem(id: string): Promise<Inventory | undefined> {
+    const [item] = await db.select().from(inventory).where(eq(inventory.id, id));
+    return item || undefined;
+  }
+
+  async createInventoryItem(insertItem: InsertInventory): Promise<Inventory> {
+    const [item] = await db
+      .insert(inventory)
+      .values(insertItem)
+      .returning();
+    return item;
+  }
+
+  async updateInventoryItem(id: string, updateData: Partial<InsertInventory>): Promise<Inventory | undefined> {
+    const [item] = await db
+      .update(inventory)
+      .set(updateData)
+      .where(eq(inventory.id, id))
+      .returning();
+    return item || undefined;
+  }
+
+  async deleteInventoryItem(id: string): Promise<boolean> {
+    const result = await db.delete(inventory).where(eq(inventory.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getLowStockItems(): Promise<Inventory[]> {
+    return await db
+      .select()
+      .from(inventory)
+      .where(sql`${inventory.currentStock} <= ${inventory.minimumStock}`)
+      .orderBy(inventory.name);
+  }
+
+  // Inventory movement methods
+  async getInventoryMovements(inventoryId?: string): Promise<(InventoryMovement & { inventory: Inventory })[]> {
+    const query = db
+      .select()
+      .from(inventoryMovements)
+      .leftJoin(inventory, eq(inventoryMovements.inventoryId, inventory.id))
+      .orderBy(desc(inventoryMovements.movementDate));
+
+    if (inventoryId) {
+      query.where(eq(inventoryMovements.inventoryId, inventoryId));
+    }
+
+    return await query.then(results => 
+      results.map(row => ({
+        ...row.inventory_movements,
+        inventory: row.inventory!
+      }))
+    );
+  }
+
+  async createInventoryMovement(insertMovement: InsertInventoryMovement): Promise<InventoryMovement> {
+    const [movement] = await db
+      .insert(inventoryMovements)
+      .values(insertMovement)
+      .returning();
+
+    // Update inventory stock
+    if (movement.movementType === 'in') {
+      await db
+        .update(inventory)
+        .set({
+          currentStock: sql`${inventory.currentStock} + ${movement.quantity}`,
+          lastRestockDate: movement.movementDate
+        })
+        .where(eq(inventory.id, movement.inventoryId));
+    } else if (movement.movementType === 'out') {
+      await db
+        .update(inventory)
+        .set({
+          currentStock: sql`${inventory.currentStock} - ${movement.quantity}`
+        })
+        .where(eq(inventory.id, movement.inventoryId));
+    }
+
+    return movement;
+  }
+
+  // Cash flow methods
+  async getCashFlow(startDate?: Date, endDate?: Date): Promise<CashFlow[]> {
+    if (startDate && endDate) {
+      return await db
+        .select()
+        .from(cashFlow)
+        .where(
+          and(
+            gte(cashFlow.transactionDate, startDate),
+            sql`${cashFlow.transactionDate} <= ${endDate}`
+          )
+        )
+        .orderBy(desc(cashFlow.transactionDate));
+    }
+
+    return await db.select().from(cashFlow).orderBy(desc(cashFlow.transactionDate));
+  }
+
+  async createCashFlowEntry(insertEntry: InsertCashFlow): Promise<CashFlow> {
+    const [entry] = await db
+      .insert(cashFlow)
+      .values(insertEntry)
+      .returning();
+    return entry;
+  }
+
+  // Enhanced statistics methods
   async getMonthlyStats(): Promise<{
     monthlyRevenue: number;
+    monthlyExpenses: number;
+    monthlyProfit: number;
     eventsCount: number;
     activeClients: number;
     pendingPayments: number;
+    lowStockItems: number;
+    totalInventoryValue: number;
   }> {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
     
@@ -272,8 +484,21 @@ export class DatabaseStorage implements IStorage {
       .from(payments)
       .where(
         and(
-          sql`DATE_TRUNC('month', ${payments.paymentDate}) = ${currentMonth}-01`,
+          sql`DATE_TRUNC('month', ${payments.paymentDate}) = DATE_TRUNC('month', CURRENT_DATE)`,
           eq(payments.status, 'completed')
+        )
+      );
+
+    // Monthly expenses
+    const expensesResult = await db
+      .select({ 
+        total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)` 
+      })
+      .from(expenses)
+      .where(
+        and(
+          sql`DATE_TRUNC('month', ${expenses.expenseDate}) = DATE_TRUNC('month', CURRENT_DATE)`,
+          eq(expenses.status, 'paid')
         )
       );
 
@@ -283,7 +508,7 @@ export class DatabaseStorage implements IStorage {
         count: sql<number>`COUNT(*)` 
       })
       .from(events)
-      .where(sql`DATE_TRUNC('month', ${events.eventDate}) = ${currentMonth}-01`);
+      .where(sql`DATE_TRUNC('month', ${events.eventDate}) = DATE_TRUNC('month', CURRENT_DATE)`);
 
     // Active clients (clients with events this year)
     const currentYear = new Date().getFullYear();
@@ -302,11 +527,125 @@ export class DatabaseStorage implements IStorage {
       .from(payments)
       .where(eq(payments.status, 'pending'));
 
+    // Low stock items count
+    const lowStockResult = await db
+      .select({ 
+        count: sql<number>`COUNT(*)` 
+      })
+      .from(inventory)
+      .where(sql`${inventory.currentStock} <= ${inventory.minimumStock}`);
+
+    // Total inventory value
+    const inventoryValueResult = await db
+      .select({ 
+        total: sql<number>`COALESCE(SUM(${inventory.currentStock} * ${inventory.unitCost}), 0)` 
+      })
+      .from(inventory)
+      .where(sql`${inventory.unitCost} IS NOT NULL`);
+
+    const monthlyRevenue = Number(revenueResult[0]?.total || 0);
+    const monthlyExpenses = Number(expensesResult[0]?.total || 0);
+
     return {
-      monthlyRevenue: Number(revenueResult[0]?.total || 0),
+      monthlyRevenue,
+      monthlyExpenses,
+      monthlyProfit: monthlyRevenue - monthlyExpenses,
       eventsCount: Number(eventsResult[0]?.count || 0),
       activeClients: Number(clientsResult[0]?.count || 0),
       pendingPayments: Number(pendingResult[0]?.total || 0),
+      lowStockItems: Number(lowStockResult[0]?.count || 0),
+      totalInventoryValue: Number(inventoryValueResult[0]?.total || 0),
+    };
+  }
+
+  async getFinancialSummary(startDate: Date, endDate: Date): Promise<{
+    totalRevenue: number;
+    totalExpenses: number;
+    netProfit: number;
+    profitMargin: number;
+    expensesByCategory: { category: string; total: number }[];
+    revenueByMonth: { month: string; revenue: number }[];
+  }> {
+    // Total revenue in period
+    const revenueResult = await db
+      .select({ 
+        total: sql<number>`COALESCE(SUM(${payments.amount}), 0)` 
+      })
+      .from(payments)
+      .where(
+        and(
+          gte(payments.paymentDate, startDate),
+          sql`${payments.paymentDate} <= ${endDate}`,
+          eq(payments.status, 'completed')
+        )
+      );
+
+    // Total expenses in period
+    const expensesResult = await db
+      .select({ 
+        total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)` 
+      })
+      .from(expenses)
+      .where(
+        and(
+          gte(expenses.expenseDate, startDate),
+          sql`${expenses.expenseDate} <= ${endDate}`,
+          eq(expenses.status, 'paid')
+        )
+      );
+
+    // Expenses by category
+    const expensesByCategoryResult = await db
+      .select({
+        category: expenses.category,
+        total: sql<number>`COALESCE(SUM(${expenses.amount}), 0)`
+      })
+      .from(expenses)
+      .where(
+        and(
+          gte(expenses.expenseDate, startDate),
+          sql`${expenses.expenseDate} <= ${endDate}`,
+          eq(expenses.status, 'paid')
+        )
+      )
+      .groupBy(expenses.category)
+      .orderBy(desc(sql`SUM(${expenses.amount})`));
+
+    // Revenue by month
+    const revenueByMonthResult = await db
+      .select({
+        month: sql<string>`TO_CHAR(${payments.paymentDate}, 'YYYY-MM')`,
+        revenue: sql<number>`COALESCE(SUM(${payments.amount}), 0)`
+      })
+      .from(payments)
+      .where(
+        and(
+          gte(payments.paymentDate, startDate),
+          sql`${payments.paymentDate} <= ${endDate}`,
+          eq(payments.status, 'completed')
+        )
+      )
+      .groupBy(sql`TO_CHAR(${payments.paymentDate}, 'YYYY-MM')`)
+      .orderBy(sql`TO_CHAR(${payments.paymentDate}, 'YYYY-MM')`);
+
+    const totalRevenue = Number(revenueResult[0]?.total || 0);
+    const totalExpenses = Number(expensesResult[0]?.total || 0);
+    const netProfit = totalRevenue - totalExpenses;
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+    return {
+      totalRevenue,
+      totalExpenses,
+      netProfit,
+      profitMargin,
+      expensesByCategory: expensesByCategoryResult.map(row => ({
+        category: row.category,
+        total: Number(row.total)
+      })),
+      revenueByMonth: revenueByMonthResult.map(row => ({
+        month: row.month,
+        revenue: Number(row.revenue)
+      })),
     };
   }
 }
