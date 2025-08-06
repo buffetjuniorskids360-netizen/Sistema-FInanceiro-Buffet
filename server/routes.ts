@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
-import { insertClientSchema, insertEventSchema, insertPaymentSchema, insertExpenseSchema, insertInventorySchema, insertInventoryMovementSchema } from "@shared/schema";
+import { insertClientSchema, insertEventSchema, insertPaymentSchema, insertExpenseSchema } from "@shared/schema";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -306,80 +306,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Inventory management routes
-  app.get("/api/inventory", requireAuth, async (req, res) => {
-    try {
-      const inventory = await storage.getInventory();
-      res.json(inventory);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch inventory" });
-    }
-  });
 
-  app.post("/api/inventory", requireAuth, async (req, res) => {
-    try {
-      const validatedData = insertInventorySchema.parse(req.body);
-      const item = await storage.createInventoryItem(validatedData);
-      res.status(201).json(item);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid inventory data" });
-    }
-  });
-
-  app.put("/api/inventory/:id", requireAuth, async (req, res) => {
-    try {
-      const validatedData = insertInventorySchema.partial().parse(req.body);
-      const item = await storage.updateInventoryItem(req.params.id, validatedData);
-      if (!item) {
-        return res.status(404).json({ message: "Inventory item not found" });
-      }
-      res.json(item);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid inventory data" });
-    }
-  });
-
-  app.delete("/api/inventory/:id", requireAuth, async (req, res) => {
-    try {
-      const success = await storage.deleteInventoryItem(req.params.id);
-      if (!success) {
-        return res.status(404).json({ message: "Inventory item not found" });
-      }
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ message: "Failed to delete inventory item" });
-    }
-  });
-
-  app.get("/api/inventory/low-stock", requireAuth, async (req, res) => {
-    try {
-      const items = await storage.getLowStockItems();
-      res.json(items);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch low stock items" });
-    }
-  });
-
-  // Inventory movements routes
-  app.get("/api/inventory/movements", requireAuth, async (req, res) => {
-    try {
-      const inventoryId = req.query.inventoryId as string;
-      const movements = await storage.getInventoryMovements(inventoryId);
-      res.json(movements);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch inventory movements" });
-    }
-  });
-
-  app.post("/api/inventory/movements", requireAuth, async (req, res) => {
-    try {
-      const validatedData = insertInventoryMovementSchema.parse(req.body);
-      const movement = await storage.createInventoryMovement(validatedData);
-      res.status(201).json(movement);
-    } catch (error) {
-      res.status(400).json({ message: "Invalid movement data" });
-    }
-  });
 
   // Cash flow routes
   app.get("/api/cashflow", requireAuth, async (req, res) => {

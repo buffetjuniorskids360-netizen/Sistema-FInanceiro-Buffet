@@ -1,71 +1,106 @@
+import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import crypto from "node:crypto";
+import pino from "pino";
+import pinoHttp from "pino-http";
+import { pool } from "./db";
+
+const logger = pino({
+  level: process.env.LOG_LEVEL || "info",
+  transport: process.env.NODE_ENV === "development" ? { target: "pino-pretty", options: { colorize: true } } : undefined,
+});
+
+// Masked preview of DATABASE_URL to validate env load (first 20 chars only)
+if (process.env.DATABASE_URL) {
+  const prev = process.env.DATABASE_URL.slice(0, 20);
+  logger.info({ db: `${prev}...` }, "DATABASE_URL detected");
+} else {
+  logger.warn("DATABASE_URL not found in process.env; ensure server/.env or .env is configured");
+}
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Correlation ID middleware
 app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
+  const headerId = req.headers["x-request-id"];
+  const id = typeof headerId === "string" && headerId.trim() !== "" ? headerId : crypto.randomUUID();
+  (req as any).requestId = id;
+  res.setHeader("X-Request-Id", id);
   next();
 });
 
+// Structured logging
+app.use(
+  pinoHttp({
+    logger,
+    customProps: (req, res) => ({
+      requestId: (req as any).requestId,
+      route: req.url,
+      statusCode: res.statusCode,
+    }),
+    customLogLevel: function (_req, res, err) {
+      if (res.statusCode >= 500 || err) return "error";
+      if (res.statusCode >= 400) return "warn";
+      return "info";
+    },
+  })
+);
+
+// Health endpoints
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+
+app.get("/readyz", async (_req, res) => {
+  try {
+    // lightweight readiness check
+    const r = await pool.query("select 1");
+    res.status(200).json({ status: "ready", db: r.rowCount === 1 ? "ok" : "degraded" });
+  } catch (e: any) {
+    res.status(503).json({ status: "not_ready", error: e?.message ?? "db error" });
+  }
+});
+
+// Register application routes
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+  // Centralized error handler
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+    const status = Number(err.status || err.statusCode || 500);
+    const code = err.code || "INTERNAL_ERROR";
+    const message = err.publicMessage || err.message || "Internal Server Error";
+    const requestId = (req as any).requestId;
 
-    res.status(status).json({ message });
-    throw err;
+    // log full error with stack
+    (req as any).log?.error({ err, requestId, code, status }, "request failed");
+
+    res.status(status).json({
+      code,
+      message,
+      requestId,
+    });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Vite/static serving
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
+  const port = parseInt(process.env.PORT || "3000", 10);
+  server.listen(
+    {
+      port,
+      host: "localhost",
+    },
+    () => {
+      log(`serving on port ${port}`);
+    }
+  );
 })();

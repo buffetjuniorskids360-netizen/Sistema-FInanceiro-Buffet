@@ -58,7 +58,10 @@ export function setupAuth(app: Express) {
   };
 
   // Create default user on startup
-  createDefaultUser();
+  // Delay seeding slightly to ensure DB pool is fully ready and schema resolution is stable.
+  setTimeout(() => {
+    createDefaultUser();
+  }, 500);
 
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "buffet-juniors-secret-key",

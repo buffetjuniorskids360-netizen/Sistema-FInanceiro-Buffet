@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertExpenseSchema, type InsertExpense } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { toDecimalString } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, DollarSign, Receipt, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { format } from "date-fns";
@@ -94,7 +95,11 @@ export default function ExpensesPage() {
   });
 
   const onSubmit = (data: InsertExpense) => {
-    createMutation.mutate(data);
+    const payload: InsertExpense = {
+      ...data,
+      amount: toDecimalString(data.amount),
+    };
+    createMutation.mutate(payload);
   };
 
   const getStatusBadge = (status: string) => {

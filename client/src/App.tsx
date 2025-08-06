@@ -18,7 +18,7 @@ import EventsMonthPage from "@/pages/events-month-page";
 import ActiveClientsPage from "@/pages/active-clients-page";
 import PendingPaymentsPage from "@/pages/pending-payments-page";
 import ExpensesPage from "@/pages/expenses-page";
-import InventoryPage from "@/pages/inventory-page";
+
 
 function Router() {
   return (
@@ -28,7 +28,7 @@ function Router() {
       <ProtectedRoute path="/clients" component={ClientsPage} />
       <ProtectedRoute path="/payments" component={PaymentsPage} />
       <ProtectedRoute path="/expenses" component={ExpensesPage} />
-      <ProtectedRoute path="/inventory" component={InventoryPage} />
+      
       <ProtectedRoute path="/revenue" component={RevenuePage} />
       <ProtectedRoute path="/documents" component={DocumentsPage} />
       <ProtectedRoute path="/receita-total" component={RevenueTotalPage} />

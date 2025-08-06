@@ -1,11 +1,11 @@
 
-import { useState } from "react";
+/* @jsxImportSource react */
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Sidebar } from "@/components/layout/sidebar";
+import { Sidebar, SidebarProvider } from "@/components/ui/sidebar";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,11 +15,36 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertEventSchema } from "@shared/schema";
+import { toDecimalString, toDateYYYYMMDD, toTimeHHMM } from "@/lib/utils";
 import { Calendar, Plus, Users, Clock, MapPin, Phone, Mail, ArrowLeft } from "lucide-react";
+import EventModalDefault from "@/components/events/event-modal";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useLocation } from "wouter";
+import type { ReactElement } from "react";
 
+const EventModal = EventModalDefault;
+ 
+function EventsScaffold({
+  sidebarOpen,
+  setSidebarOpen,
+  showEventModal,
+  handleCloseModal,
+}: {
+  sidebarOpen: boolean;
+  setSidebarOpen: (v: boolean) => void;
+  showEventModal: boolean;
+  handleCloseModal: () => void;
+}) {
+  return (
+    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+      <Sidebar />
+      {/* Use shared EventModal to avoid prop type mismatch on Dialog */}
+      <EventModal isOpen={showEventModal} onClose={handleCloseModal} />
+    </SidebarProvider>
+  );
+}
+ 
 export default function EventsPage() {
   const { toast } = useToast();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -93,7 +118,30 @@ export default function EventsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+
+    // Map UI fields to backend event schema without changing UI
+    // eventDate is datetime-local (YYYY-MM-DDTHH:mm). Derive date and time.
+    const dt = formData.eventDate || "";
+    const hasT = dt.includes("T");
+    const datePart = hasT ? dt.split("T")[0] : dt;
+    const timePart = hasT ? dt.split("T")[1] : "00:00";
+
+    const payload = {
+      childName: formData.childName,
+      clientId: formData.clientId,
+      eventDate: toDateYYYYMMDD(datePart),
+      startTime: toTimeHHMM(timePart),
+      endTime: toTimeHHMM(timePart),
+      guestCount: Number(formData.guestCount || 0),
+      totalValue: toDecimalString(formData.budget || "0"),
+      notes: formData.specialRequests || "",
+      // status is accepted by backend schema; keep as provided if present
+      status: formData.status || "scheduled",
+    };
+
+    // Validate and submit against shared zod schema
+    const validated = insertEventSchema.parse(payload);
+    createMutation.mutate(validated);
   };
 
   const getStatusColor = (status: string) => {
@@ -124,15 +172,20 @@ export default function EventsPage() {
 
   return (
     <div className="min-h-screen flex">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-      
+      <EventsScaffold
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        showEventModal={showEventModal}
+        handleCloseModal={handleCloseModal}
+      />
+ 
       {sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-
+ 
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -257,154 +310,6 @@ export default function EventsPage() {
         </div>
       </main>
 
-      <Dialog open={showEventModal} onOpenChange={handleCloseModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Novo Evento</DialogTitle>
-          </DialogHeader>
-          
-          <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="clientId">Cliente</Label>
-                <Select value={formData.clientId} onValueChange={(value) => setFormData(prev => ({ ...prev, clientId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clients?.map((client: any) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label htmlFor="childName">Nome da Criança</Label>
-                <Input
-                  id="childName"
-                  value={formData.childName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, childName: e.target.value }))}
-                  placeholder="Nome da criança aniversariante"
-                  required
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="eventDate">Data do Evento</Label>
-                <Input
-                  id="eventDate"
-                  type="datetime-local"
-                  value={formData.eventDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, eventDate: e.target.value }))}
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="eventType">Tipo de Evento</Label>
-                <Select value={formData.eventType} onValueChange={(value) => setFormData(prev => ({ ...prev, eventType: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="birthday">Aniversário</SelectItem>
-                    <SelectItem value="party">Festa</SelectItem>
-                    <SelectItem value="celebration">Celebração</SelectItem>
-                    <SelectItem value="other">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="guestCount">Número de Convidados</Label>
-                <Input
-                  id="guestCount"
-                  type="number"
-                  value={formData.guestCount}
-                  onChange={(e) => setFormData(prev => ({ ...prev, guestCount: e.target.value }))}
-                  placeholder="Ex: 30"
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="budget">Orçamento</Label>
-                <Input
-                  id="budget"
-                  value={formData.budget}
-                  onChange={(e) => setFormData(prev => ({ ...prev, budget: e.target.value }))}
-                  placeholder="R$ 0,00"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label htmlFor="venue">Local do Evento</Label>
-              <Input
-                id="venue"
-                value={formData.venue}
-                onChange={(e) => setFormData(prev => ({ ...prev, venue: e.target.value }))}
-                placeholder="Endereço ou nome do local"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="theme">Tema da Festa</Label>
-              <Input
-                id="theme"
-                value={formData.theme}
-                onChange={(e) => setFormData(prev => ({ ...prev, theme: e.target.value }))}
-                placeholder="Ex: Super-heróis, Princesas, etc."
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="scheduled">Agendado</SelectItem>
-                  <SelectItem value="confirmed">Confirmado</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                  <SelectItem value="completed">Concluído</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label htmlFor="specialRequests">Solicitações Especiais</Label>
-              <Textarea
-                id="specialRequests"
-                value={formData.specialRequests}
-                onChange={(e) => setFormData(prev => ({ ...prev, specialRequests: e.target.value }))}
-                placeholder="Observações especiais sobre o evento..."
-                rows={3}
-              />
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={handleCloseModal}>
-                Cancelar
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending ? "Salvando..." : "Criar Evento"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

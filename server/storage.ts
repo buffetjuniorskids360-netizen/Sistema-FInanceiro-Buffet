@@ -1,6 +1,6 @@
-import { users, clients, events, payments, documents, expenses, inventory, inventoryMovements, cashFlow, type User, type InsertUser, type Client, type InsertClient, type Event, type InsertEvent, type Payment, type InsertPayment, type Document, type InsertDocument, type Expense, type InsertExpense, type Inventory, type InsertInventory, type InventoryMovement, type InsertInventoryMovement, type CashFlow, type InsertCashFlow } from "@shared/schema";
+import { users, clients, events, payments, documents, expenses, cashFlow, type User, type InsertUser, type Client, type InsertClient, type Event, type InsertEvent, type Payment, type InsertPayment, type Document, type InsertDocument, type Expense, type InsertExpense, type CashFlow, type InsertCashFlow } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, gte, and, sql } from "drizzle-orm";
+import { eq, desc, gte, and, sql, lt } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
@@ -48,17 +48,6 @@ export interface IStorage {
   deleteExpense(id: string): Promise<boolean>;
   getExpensesByCategory(): Promise<{ category: string; total: number }[]>;
   
-  // Inventory methods
-  getInventory(): Promise<Inventory[]>;
-  getInventoryItem(id: string): Promise<Inventory | undefined>;
-  createInventoryItem(item: InsertInventory): Promise<Inventory>;
-  updateInventoryItem(id: string, item: Partial<InsertInventory>): Promise<Inventory | undefined>;
-  deleteInventoryItem(id: string): Promise<boolean>;
-  getLowStockItems(): Promise<Inventory[]>;
-  
-  // Inventory movement methods
-  getInventoryMovements(inventoryId?: string): Promise<(InventoryMovement & { inventory: Inventory })[]>;
-  createInventoryMovement(movement: InsertInventoryMovement): Promise<InventoryMovement>;
   
   // Cash flow methods
   getCashFlow(startDate?: Date, endDate?: Date): Promise<CashFlow[]>;
@@ -72,8 +61,6 @@ export interface IStorage {
     eventsCount: number;
     activeClients: number;
     pendingPayments: number;
-    lowStockItems: number;
-    totalInventoryValue: number;
   }>;
   
   getFinancialSummary(startDate: Date, endDate: Date): Promise<{
@@ -92,20 +79,40 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
+    // Basic runtime assert to catch missing DATABASE_URL early for session store path
+    const hasUrl = !!process.env.DATABASE_URL;
+    if (!hasUrl) {
+      // eslint-disable-next-line no-console
+      console.warn("[session] DATABASE_URL missing in process.env at storage init");
+    } else {
+      const prev = process.env.DATABASE_URL!.slice(0, 20);
+      // eslint-disable-next-line no-console
+      console.log(`[session] DATABASE_URL detected: ${prev}...`);
+    }
+
+    this.sessionStore = new PostgresSessionStore({
+      pool, // reuse shared Pool configured with connectionString
+      createTableIfMissing: true,
+      tableName: 'session',
+      schemaName: 'app'
     });
   }
 
   // User methods
   async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    // Ensure fully-qualified reference in case session store resets search_path
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, id));
     return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
     return user || undefined;
   }
 
@@ -202,7 +209,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUpcomingEvents(limit = 10): Promise<(Event & { client: Client })[]> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0]; // Corrigido: usar string de data
     
     return await db
       .select()
@@ -350,92 +357,6 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(sql`SUM(${expenses.amount})`));
   }
 
-  // Inventory methods
-  async getInventory(): Promise<Inventory[]> {
-    return await db.select().from(inventory).orderBy(inventory.name);
-  }
-
-  async getInventoryItem(id: string): Promise<Inventory | undefined> {
-    const [item] = await db.select().from(inventory).where(eq(inventory.id, id));
-    return item || undefined;
-  }
-
-  async createInventoryItem(insertItem: InsertInventory): Promise<Inventory> {
-    const [item] = await db
-      .insert(inventory)
-      .values(insertItem)
-      .returning();
-    return item;
-  }
-
-  async updateInventoryItem(id: string, updateData: Partial<InsertInventory>): Promise<Inventory | undefined> {
-    const [item] = await db
-      .update(inventory)
-      .set(updateData)
-      .where(eq(inventory.id, id))
-      .returning();
-    return item || undefined;
-  }
-
-  async deleteInventoryItem(id: string): Promise<boolean> {
-    const result = await db.delete(inventory).where(eq(inventory.id, id));
-    return result.rowCount ? result.rowCount > 0 : false;
-  }
-
-  async getLowStockItems(): Promise<Inventory[]> {
-    return await db
-      .select()
-      .from(inventory)
-      .where(sql`${inventory.currentStock} <= ${inventory.minimumStock}`)
-      .orderBy(inventory.name);
-  }
-
-  // Inventory movement methods
-  async getInventoryMovements(inventoryId?: string): Promise<(InventoryMovement & { inventory: Inventory })[]> {
-    const query = db
-      .select()
-      .from(inventoryMovements)
-      .leftJoin(inventory, eq(inventoryMovements.inventoryId, inventory.id))
-      .orderBy(desc(inventoryMovements.movementDate));
-
-    if (inventoryId) {
-      query.where(eq(inventoryMovements.inventoryId, inventoryId));
-    }
-
-    return await query.then(results => 
-      results.map(row => ({
-        ...row.inventory_movements,
-        inventory: row.inventory!
-      }))
-    );
-  }
-
-  async createInventoryMovement(insertMovement: InsertInventoryMovement): Promise<InventoryMovement> {
-    const [movement] = await db
-      .insert(inventoryMovements)
-      .values(insertMovement)
-      .returning();
-
-    // Update inventory stock
-    if (movement.movementType === 'in') {
-      await db
-        .update(inventory)
-        .set({
-          currentStock: sql`${inventory.currentStock} + ${movement.quantity}`,
-          lastRestockDate: movement.movementDate
-        })
-        .where(eq(inventory.id, movement.inventoryId));
-    } else if (movement.movementType === 'out') {
-      await db
-        .update(inventory)
-        .set({
-          currentStock: sql`${inventory.currentStock} - ${movement.quantity}`
-        })
-        .where(eq(inventory.id, movement.inventoryId));
-    }
-
-    return movement;
-  }
 
   // Cash flow methods
   async getCashFlow(startDate?: Date, endDate?: Date): Promise<CashFlow[]> {
@@ -471,8 +392,6 @@ export class DatabaseStorage implements IStorage {
     eventsCount: number;
     activeClients: number;
     pendingPayments: number;
-    lowStockItems: number;
-    totalInventoryValue: number;
   }> {
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
     
@@ -527,22 +446,6 @@ export class DatabaseStorage implements IStorage {
       .from(payments)
       .where(eq(payments.status, 'pending'));
 
-    // Low stock items count
-    const lowStockResult = await db
-      .select({ 
-        count: sql<number>`COUNT(*)` 
-      })
-      .from(inventory)
-      .where(sql`${inventory.currentStock} <= ${inventory.minimumStock}`);
-
-    // Total inventory value
-    const inventoryValueResult = await db
-      .select({ 
-        total: sql<number>`COALESCE(SUM(${inventory.currentStock} * ${inventory.unitCost}), 0)` 
-      })
-      .from(inventory)
-      .where(sql`${inventory.unitCost} IS NOT NULL`);
-
     const monthlyRevenue = Number(revenueResult[0]?.total || 0);
     const monthlyExpenses = Number(expensesResult[0]?.total || 0);
 
@@ -553,8 +456,6 @@ export class DatabaseStorage implements IStorage {
       eventsCount: Number(eventsResult[0]?.count || 0),
       activeClients: Number(clientsResult[0]?.count || 0),
       pendingPayments: Number(pendingResult[0]?.total || 0),
-      lowStockItems: Number(lowStockResult[0]?.count || 0),
-      totalInventoryValue: Number(inventoryValueResult[0]?.total || 0),
     };
   }
 
@@ -638,14 +539,8 @@ export class DatabaseStorage implements IStorage {
       totalExpenses,
       netProfit,
       profitMargin,
-      expensesByCategory: expensesByCategoryResult.map(row => ({
-        category: row.category,
-        total: Number(row.total)
-      })),
-      revenueByMonth: revenueByMonthResult.map(row => ({
-        month: row.month,
-        revenue: Number(row.revenue)
-      })),
+      expensesByCategory: expensesByCategoryResult,
+      revenueByMonth: revenueByMonthResult,
     };
   }
 }

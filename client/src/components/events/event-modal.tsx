@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertEventSchema } from "@shared/schema";
+import { toDecimalString, toDateYYYYMMDD, toTimeHHMM } from "@/lib/utils";
 
 interface EventModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface EventModalProps {
   event?: any;
 }
 
-export function EventModal({ isOpen, onClose, event }: EventModalProps) {
+export default function EventModal({ isOpen, onClose, event }: EventModalProps) {
   const { toast } = useToast();
   const isEditing = !!event;
 
@@ -101,12 +102,20 @@ export function EventModal({ isOpen, onClose, event }: EventModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    // Lazy-load to avoid potential circular deps at module init
+    const { toDecimalString, toDateYYYYMMDD, toTimeHHMM } = require("@/lib/utils");
+
     const submitData = {
-      ...formData,
-      age: parseInt(formData.age),
-      guestCount: parseInt(formData.guestCount),
-      totalValue: formData.totalValue.replace(/\D/g, '') // Remove non-numeric characters
+      childName: formData.childName,
+      age: Number(formData.age),
+      clientId: formData.clientId,
+      eventDate: toDateYYYYMMDD(formData.eventDate),
+      startTime: toTimeHHMM(formData.startTime),
+      endTime: toTimeHHMM(formData.endTime),
+      guestCount: Number(formData.guestCount),
+      totalValue: toDecimalString(formData.totalValue),
+      notes: formData.notes,
     };
 
     if (isEditing) {

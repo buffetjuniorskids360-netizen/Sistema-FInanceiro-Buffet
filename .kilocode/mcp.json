@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "Neon": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote@latest",
+        "https://mcp.neon.tech/mcp"
+      ],
+      "alwaysAllow": [
+        "list_projects",
+        "run_sql",
+        "complete_database_migration"
+      ]
+    }
+  }
+}

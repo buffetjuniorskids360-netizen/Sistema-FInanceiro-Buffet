@@ -22,7 +22,7 @@ const navigation = [
   { name: "Eventos", href: "/events", icon: Calendar },
   { name: "Pagamentos", href: "/payments", icon: CreditCard },
   { name: "Despesas", href: "/expenses", icon: Receipt },
-  { name: "Estoque", href: "/inventory", icon: Package },
+  
   { name: "Documentos", href: "/documents", icon: FileText },
   { name: "Relatórios", href: "/revenue", icon: BarChart3 },
 ];
